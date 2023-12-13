@@ -1,6 +1,8 @@
 ﻿using AssignmentWebAPI.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection.Metadata.Ecma335;
 
@@ -17,13 +19,49 @@ namespace AssignmentWebAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+        public async Task<ActionResult<IEnumerable<Product>>> GetProducts(string Sorder)
         {
             if (_productContext.Products == null) {
                 return NotFound(); }
 
-            return await _productContext.Products.ToListAsync();
+            IQueryable<Product> query = _productContext.Products;
+
+            switch (Sorder)
+            {
+                case "asc":
+                    query = query.OrderBy(p => p.Price);
+                    break;
+
+                case "desc":
+                    query = query.OrderByDescending(p => p.Price);
+                    break;
+
+                // Default to ascending if sortOrder is not specified or invalid
+                default:
+                    query = query.OrderBy(p => p.ProductID);
+                    break;
+            }
+            return await query.ToListAsync();
         }
+        
+        [HttpGet("SearchProducts/")]
+        public async Task<ActionResult<IEnumerable<Product>>> SearchProducts(string searchTerm)
+        {
+            if (_productContext.Products == null)
+            {
+                return NotFound();
+            }
+            IQueryable<Product> query = _productContext.Products;
+
+            if (!string.IsNullOrEmpty(searchTerm))
+            {
+                // Add a condition to filter products based on the search term
+                query = query.Where(p => p.Name.Contains(searchTerm) || p.Type.Contains(searchTerm) || p.Color.Contains(searchTerm));
+            }
+            return Ok(await query.ToListAsync());
+        }
+
+
         [HttpGet("{id}")]
         public async Task<ActionResult<IEnumerable<Product>>> GetProduct(int id)
         {
